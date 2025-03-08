@@ -1,5 +1,5 @@
 use crate::storage::database::DB;
-use dialoguer::Input;
+use dialoguer::{Input, Password};
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -28,6 +28,30 @@ pub fn import_items(db: &DB) {
 
     let export_items: Vec<ExportItem> =
         serde_json::from_str(&contents).unwrap_or_else(|e| panic!("Failed to parse JSON: {}", e));
+
+    let master_item_opt = export_items
+        .iter()
+        .find(|item| item.key == "master_password");
+    if let Some(master_item) = master_item_opt {
+        let input_password = Password::new()
+            .with_prompt("Enter master password to confirm import")
+            .interact()
+            .unwrap();
+
+        let hashed_input = blake3::hash(input_password.as_bytes());
+        let hashed_input_hex = hex::encode(hashed_input.as_bytes());
+
+        if master_item.value != hashed_input_hex {
+            println!("{}", "❌ Incorrect master password. Import aborted.".red());
+            return;
+        }
+    } else {
+        println!(
+            "{}",
+            "❌ No master password found in export file. Import aborted.".red()
+        );
+        return;
+    }
 
     for item in &export_items {
         db.insert(item.key.clone(), item.value.clone().into_bytes())
