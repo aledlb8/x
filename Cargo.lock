@@ -1636,9 +1636,9 @@ dependencies = [
 
 [[package]]
 name = "self_update"
-version = "0.17.0"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a92f474983e58f748880101ad403bb51df916121d8f5e1b913f959e9a9c499d9"
+checksum = "6c114732d0d62b6bb3f12805de895382ceff52c31e97faa7be3a1883f2e3071a"
 dependencies = [
  "hyper-old-types",
  "indicatif 0.13.0",
@@ -2370,8 +2370,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "x-cli"
-version = "0.1.2"
+name = "x"
+version = "0.1.3"
 dependencies = [
  "aes-gcm",
  "base64 0.22.1",
