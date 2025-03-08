@@ -31,9 +31,6 @@ pub fn export_items(db: &DB) {
         };
 
         let key_str = String::from_utf8_lossy(&key_bytes).to_string();
-        if key_str == "master_password" || key_str == "session" {
-            continue;
-        }
         let value_str = String::from_utf8_lossy(&value_bytes).to_string();
         export_items.push(ExportItem {
             key: key_str,

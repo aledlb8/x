@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand};
 use owo_colors::OwoColorize;
 
 #[derive(Parser)]
-#[command(name = "x", version = "1.0", about = "X CLI")]
+#[command(name = "x", version = "0.1.2", about = "X CLI")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
