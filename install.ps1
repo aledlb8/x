@@ -7,9 +7,9 @@ New-Item -ItemType Directory -Force -Path $INSTALL_PATH | Out-Null
 Invoke-WebRequest -Uri $URL -OutFile $EXE_PATH
 
 Write-Host "Adding to PATH..."
-$Path = [User.Environment]::GetEnvironmentVariable("Path", [User.EnvironmentVariableTarget]::Machine)
+$Path = [System.Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
 if ($Path -notlike "*$INSTALL_PATH*") {
-    [User.Environment]::SetEnvironmentVariable("Path", "$Path;$INSTALL_PATH", [User.EnvironmentVariableTarget]::Machine)
+    [System.Environment]::SetEnvironmentVariable("Path", "$Path;$INSTALL_PATH", [System.EnvironmentVariableTarget]::Machine)
 }
 
 Write-Host "✅ Installed! Close and reopen your terminal, then run 'x --help'."
