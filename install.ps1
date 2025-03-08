@@ -1,4 +1,4 @@
-$URL = "https://github.com/aledlb8/x/releases/latest/download/x-win-x64.exe"
+$URL = "https://github.com/aledlb8/x/releases/download/2.0/x-win.exe"
 $INSTALL_PATH = "$env:ProgramFiles\x.exe"
 
 Write-Host "Downloading CLI..."

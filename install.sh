@@ -6,9 +6,9 @@ OS=$(uname -s)
 URL=""
 
 if [[ "$OS" == "Linux" ]]; then
-  URL="https://github.com/aledlb8/x/releases/latest/download/x-linux-x64"
+  URL="https://github.com/aledlb8/x/releases/download/x-linux-x64"
 elif [[ "$OS" == "Darwin" ]]; then
-  URL="https://github.com/aledlb8/x/releases/latest/download/x-macos-x64"
+  URL="https://github.com/aledlb8/x/releases/download/x-macos-x64"
 else
   echo "Unsupported OS"
   exit 1
