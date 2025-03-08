@@ -1,6 +1,6 @@
 import fs from "fs-extra";
 import inquirer from "inquirer";
-import { encrypt, decrypt } from "./encryption";
+import { encrypt } from "./encryption";
 import { logger } from "./logger";
 import { CONFIG_FILE } from "./config";
 
@@ -16,7 +16,6 @@ export function saveConfig(config: object): void {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(config));
 }
 
-// Change session duration
 export async function changeSessionDuration() {
     const { duration } = await inquirer.prompt([
         { type: "input", name: "duration", message: "Enter session duration in minutes:", validate: (input) => /^\d+$/.test(input) ? true : "Enter a valid number" },
@@ -28,7 +27,6 @@ export async function changeSessionDuration() {
     logger.info(`✅ Session duration updated to ${duration} minutes.`);
 }
 
-// Change Master Password
 export async function changeMasterPassword() {
     const { newPassword } = await inquirer.prompt([
         { type: "password", name: "newPassword", message: "Enter new Master Password:" },

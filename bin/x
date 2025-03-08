@@ -1,0 +1,3 @@
+echo '#!/usr/bin/env node' > bin/x
+echo 'require("../dist/cli.js")' >> bin/x
+chmod +x bin/x
