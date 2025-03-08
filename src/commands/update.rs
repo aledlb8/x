@@ -7,11 +7,7 @@ pub fn update_program() {
     let current_version = env!("CARGO_PKG_VERSION");
     // Determine binary name based on OS.
     let target = std::env::consts::OS;
-    let bin_name = if target == "windows" {
-        "x-cli.exe"
-    } else {
-        "x-cli"
-    };
+    let bin_name = if target == "windows" { "x-cli.exe" } else { "x-cli" };
 
     // Update these with your GitHub repository details.
     let repo_owner = "aledlb8";
@@ -24,15 +20,26 @@ pub fn update_program() {
         .bin_name(bin_name)
         .show_download_progress(true)
         .current_version(current_version)
-        .build()
-    {
+        .build() {
         Ok(update) => match update.update() {
             Ok(status) => {
-                println!(
-                    "{} {}",
-                    "✅ Update successful!".green(),
-                    format!("New version {} installed.", status.version()).bold()
-                );
+                if status.version() == current_version {
+                    println!(
+                        "{}",
+                        format!(
+                            "✅ No update available. You're already running version {}.",
+                            current_version
+                        )
+                        .green()
+                        .bold()
+                    );
+                } else {
+                    println!(
+                        "{} {}",
+                        "✅ Update successful!".green(),
+                        format!("New version {} installed.", status.version()).bold()
+                    );
+                }
             }
             Err(e) => {
                 println!("{} {}", "❌ Update failed:".red(), e);
