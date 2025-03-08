@@ -1,4 +1,4 @@
-$URL = "https://github.com/aledlb8/x/releases/download/0.1.1/x-cli.exe"
+$URL = "https://github.com/aledlb8/x/releases/download/0.1.2/x-cli.exe"
 
 $INSTALL_PATH = "$env:LOCALAPPDATA\x-cli"
 $EXE_PATH = "$INSTALL_PATH\x.exe"
