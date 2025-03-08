@@ -1,0 +1,37 @@
+{
+  "name": "x",
+  "version": "1.0.0",
+  "main": "src/cli.ts",
+  "bin": {
+    "x": "dist/cli.js"
+  },
+  "scripts": {
+    "start": "ts-node src/cli.ts",
+    "build": "tsc",
+    "global": "npm link",
+    "publish": "npm publish --access public"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@types/node": "^22.13.9",
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "crypto": "^1.0.1",
+    "dotenv": "^16.4.7",
+    "fs-extra": "^11.3.0",
+    "inquirer": "^12.4.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.2",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "eslint": "^9.22.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-prettier": "^5.2.3",
+    "prettier": "^3.5.3"
+  }
+}
