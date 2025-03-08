@@ -3,6 +3,9 @@ name = "x"
 version = "0.1.4"
 edition = "2021"
 
+[profile.release]
+opt-level = "s"
+
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }
 dialoguer = "0.10"
