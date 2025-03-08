@@ -1,16 +1,21 @@
 #!/bin/bash
 set -e
 
-URL="https://github.com/YOUR_USERNAME/YOUR_REPO/releases/latest/download/x-cli.zip"
-INSTALL_DIR="/usr/local/bin"
+ARCH=$(uname -m)
+OS=$(uname -s)
+URL=""
+
+if [[ "$OS" == "Linux" ]]; then
+  URL="https://github.com/aledlb8/x/releases/latest/download/x-linux-x64"
+elif [[ "$OS" == "Darwin" ]]; then
+  URL="https://github.com/aledlb8/x/releases/latest/download/x-macos-x64"
+else
+  echo "Unsupported OS"
+  exit 1
+fi
 
 echo "Downloading CLI..."
-curl -L $URL -o /tmp/x-cli.zip
-
-echo "Extracting..."
-unzip -o /tmp/x-cli.zip -d $INSTALL_DIR
-
-echo "Making it executable..."
-chmod +x $INSTALL_DIR/x
+curl -L $URL -o /usr/local/bin/x
+chmod +x /usr/local/bin/x
 
 echo "✅ Installed! Run 'x --help' to get started."
