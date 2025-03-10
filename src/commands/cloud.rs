@@ -39,10 +39,14 @@ struct MachineInfo {
 }
 
 pub fn export_vault(db: &Db) -> Vec<VaultEntry> {
+    let reserved = ["session", "master_password"];
     let mut vault = Vec::new();
     for item in db.iter() {
         if let Ok((key_bytes, value_bytes)) = item {
             let key = String::from_utf8(key_bytes.to_vec()).unwrap_or_default();
+            if reserved.contains(&key.as_str()) {
+                continue;
+            }
             let value = String::from_utf8(value_bytes.to_vec()).unwrap_or_default();
             vault.push(VaultEntry { key, value });
         }
@@ -51,10 +55,8 @@ pub fn export_vault(db: &Db) -> Vec<VaultEntry> {
 }
 
 pub fn cloud_sync(db: &Db) -> Result<(), reqwest::Error> {
-    // Check if a cloud group ID is already stored
     if let Ok(Some(group_id_bytes)) = db.get("cloud_group") {
         let group_id = String::from_utf8_lossy(&group_id_bytes).to_string();
-        // Present selectable options to the user
         let choices = vec!["Upload vault to cloud", "Download vault from cloud"];
         let selection = Select::new()
             .with_prompt(format!(
@@ -70,7 +72,6 @@ pub fn cloud_sync(db: &Db) -> Result<(), reqwest::Error> {
         let client = Client::new();
 
         if selection == 0 {
-            // Upload vault to cloud using the update endpoint
             println!("{}", "Uploading vault to cloud...".yellow());
             let vault = export_vault(db);
             let payload = serde_json::json!({
@@ -91,10 +92,9 @@ pub fn cloud_sync(db: &Db) -> Result<(), reqwest::Error> {
                 println!("{}", "Error connecting to the cloud sync server.".red());
             }
         } else {
-            // Download vault from cloud using the link endpoint
             println!("{}", "Downloading vault from cloud...".yellow());
             let payload = serde_json::json!({
-                "code": group_id,  // We use the stored group ID as the code
+                "code": group_id,
                 "machine": machine,
             });
             let url = format!("{}/link", API_URL);
@@ -104,8 +104,10 @@ pub fn cloud_sync(db: &Db) -> Result<(), reqwest::Error> {
                 if resp.success {
                     println!("{}", "Cloud sync link established successfully.".green());
                     if let Some(vault) = resp.vault {
-                        // Overwrite local vault with downloaded vault data.
                         for entry in vault {
+                            if entry.key == "master_password" {
+                                continue;
+                            }
                             db.insert(entry.key, entry.value.into_bytes()).unwrap();
                         }
                         db.flush().unwrap();
@@ -121,7 +123,7 @@ pub fn cloud_sync(db: &Db) -> Result<(), reqwest::Error> {
             }
         }
     } else {
-        // If not linked, perform registration as before.
+        // Not linked yet: perform registration.
         println!("{}", "Starting cloud sync registration...".yellow());
         let code: u32 = rand::thread_rng().gen_range(100000..1000000);
         let code_str = code.to_string();
@@ -183,13 +185,15 @@ pub fn cloud_code(db: &Db) -> Result<(), reqwest::Error> {
     let client = Client::new();
     let url = format!("{}/link", API_URL);
     let res = client.post(&url).json(&payload).send()?;
-
     if res.status().is_success() {
         let resp: CloudResponse = res.json()?;
         if resp.success {
             println!("{}", "Cloud sync link established successfully.".green());
             if let Some(vault) = resp.vault {
                 for entry in vault {
+                    if entry.key == "master_password" {
+                        continue;
+                    }
                     db.insert(entry.key, entry.value.into_bytes()).unwrap();
                 }
                 db.flush().unwrap();
