@@ -38,14 +38,12 @@ struct SecureData {
 pub fn add_item(db: &DB) {
     let key = initialize_master_password(db);
 
-    // Choose the type of item to store.
     let item_type = Select::new()
         .with_prompt("What would you like to store?")
         .items(&["Password", "Credit Card", "Secure Note"])
         .interact()
         .unwrap();
 
-    // Build the vault item and determine its unique key based on the input field.
     let (unique_key, vault_item) = match item_type {
         0 => {
             let name = prompt_input("Enter the name");
@@ -92,5 +90,5 @@ pub fn add_item(db: &DB) {
     )
     .unwrap();
 
-    println!("✅ Successfully stored: {}", unique_key.green());
+    println!(" Successfully stored: {}", unique_key.green());
 }

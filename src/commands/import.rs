@@ -42,13 +42,13 @@ pub fn import_items(db: &DB) {
         let hashed_input_hex = hex::encode(hashed_input.as_bytes());
 
         if master_item.value != hashed_input_hex {
-            println!("{}", "❌ Incorrect master password. Import aborted.".red());
+            println!("{}", "Incorrect master password. Import aborted.".red());
             return;
         }
     } else {
         println!(
             "{}",
-            "❌ No master password found in export file. Import aborted.".red()
+            "No master password found in export file. Import aborted.".red()
         );
         return;
     }
@@ -62,7 +62,7 @@ pub fn import_items(db: &DB) {
     println!(
         "{}",
         format!(
-            "✅ Imported {} items from {}",
+            "Imported {} items from {}",
             export_items.len(),
             file_path
         )

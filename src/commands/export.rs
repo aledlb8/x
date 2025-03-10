@@ -12,7 +12,7 @@ struct ExportItem {
 }
 
 pub fn export_items(db: &DB) {
-    println!("{}", "📤 Export Vault Items".yellow().bold());
+    println!("{}", "Export Vault Items".yellow().bold());
 
     let file_path: String = Input::new()
         .with_prompt("Enter file path to export vault items to")
@@ -48,6 +48,6 @@ pub fn export_items(db: &DB) {
 
     println!(
         "{}",
-        format!("✅ Exported {} items to {}", export_items.len(), file_path).green()
+        format!("Exported {} items to {}", export_items.len(), file_path).green()
     );
 }

@@ -2,7 +2,7 @@ use crate::storage::database::DB;
 use owo_colors::OwoColorize;
 
 pub fn list_items(db: &DB) {
-    println!("{}", "📜 Stored Items:".yellow().bold());
+    println!("{}", "Stored Items:".yellow().bold());
 
     let mut keys: Vec<String> = db
         .iter()
@@ -15,7 +15,7 @@ pub fn list_items(db: &DB) {
     keys.sort();
 
     if keys.is_empty() {
-        println!("{}", "⚠️  No items found in your vault.".red());
+        println!("{}", "No items found in your vault.".red());
     } else {
         for key in keys {
             println!("  - {}", key.bold().green());

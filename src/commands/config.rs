@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::str;
 
 pub fn config(db: &DB) {
-    println!("🔧 Config Menu:");
+    println!("Config Menu:");
     let options = vec!["Change Master Password", "Change Session Timeout", "Exit"];
     let selection = Select::new()
         .with_prompt("Select an option")
@@ -23,7 +23,7 @@ pub fn config(db: &DB) {
 }
 
 fn change_master_password(db: &DB) {
-    println!("🔑 Change Master Password");
+    println!("Change Master Password");
 
     let current_password: String = Password::new()
         .with_prompt("Enter your current master password")
@@ -40,7 +40,7 @@ fn change_master_password(db: &DB) {
         .expect("No master password set.");
 
     if stored_hash.to_vec() != current_hashed {
-        println!("{}", "❌ Incorrect master password!".red());
+        println!("{}", "Incorrect master password!".red());
         return;
     }
 
@@ -53,7 +53,7 @@ fn change_master_password(db: &DB) {
         .interact()
         .unwrap();
     if new_password != confirm_password {
-        println!("{}", "❌ New passwords do not match!".red());
+        println!("{}", "New passwords do not match!".red());
         return;
     }
     let new_hashed = blake3::hash(new_password.as_bytes()).as_bytes().to_vec();
@@ -84,11 +84,11 @@ fn change_master_password(db: &DB) {
     db.insert(MASTER_KEY_STORAGE, &*new_hashed).unwrap();
     db.flush().expect("Failed to flush database");
 
-    println!("{}", "✅ Master password updated successfully!".green());
+    println!("{}", "Master password updated successfully!".green());
 }
 
 fn change_session_timeout(db: &DB) {
-    println!("⏱ Change Session Timeout");
+    println!("Change Session Timeout");
 
     let new_timeout: i64 = Input::new()
         .with_prompt("Enter new session timeout (in minutes)")
@@ -100,5 +100,5 @@ fn change_session_timeout(db: &DB) {
         .unwrap();
     db.flush().expect("Failed to flush database");
 
-    println!("✅ Session timeout updated to {} minutes.", new_timeout);
+    println!("Session timeout updated to {} minutes.", new_timeout);
 }

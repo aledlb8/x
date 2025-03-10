@@ -1,7 +1,7 @@
 use owo_colors::OwoColorize;
 
 pub fn update_program() {
-    println!("{}", "🚀 Checking for updates...".yellow());
+    println!("{}", "Checking for updates...".yellow());
 
     let current_version = env!("CARGO_PKG_VERSION");
     let bin_name = "x.exe";
@@ -24,7 +24,7 @@ pub fn update_program() {
                     println!(
                         "{}",
                         format!(
-                            "✅ No update available. You're already running version {}.",
+                            "No update available. You're already running version {}.",
                             current_version
                         )
                         .green()
@@ -33,17 +33,17 @@ pub fn update_program() {
                 } else {
                     println!(
                         "{} {}",
-                        "✅ Update successful!".green(),
+                        "Update successful!".green(),
                         format!("New version {} installed.", status.version()).bold()
                     );
                 }
             }
             Err(e) => {
-                println!("{} {}", "❌ Update failed:".red(), e);
+                println!("{} {}", "Update failed:".red(), e);
             }
         },
         Err(e) => {
-            println!("{} {}", "❌ Update configuration failed:".red(), e);
+            println!("{} {}", "Update configuration failed:".red(), e);
         }
     }
 }

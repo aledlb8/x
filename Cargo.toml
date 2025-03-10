@@ -1,10 +1,10 @@
 [package]
 name = "x"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 
 [profile.release]
-opt-level = "s"
+opt-level = "z"
 
 [dependencies]
 clap = { version = "4.0", features = ["derive"] }

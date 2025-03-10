@@ -60,7 +60,7 @@ pub fn edit_item(db: &DB) {
         .collect();
 
     if keys.is_empty() {
-        println!("{}", "❌ No items found in the vault.".red());
+        println!("{}", "No items found in the vault.".red());
         return;
     }
 
@@ -122,8 +122,8 @@ pub fn edit_item(db: &DB) {
 
         db.insert(item_key, serde_json::to_string(&updated_item).unwrap().as_bytes())
             .unwrap();
-        println!("✅ Successfully updated: {}", item_key.green());
+        println!("Successfully updated: {}", item_key.green());
     } else {
-        println!("{}", "❌ Item not found!".red());
+        println!("{}", "Item not found!".red());
     }
 }

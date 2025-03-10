@@ -45,26 +45,25 @@ pub fn get_item(db: &DB) {
         .collect();
 
     if keys.is_empty() {
-        println!("{}", "❌ No items found in the vault.".red());
+        println!("{}", "No items found in the vault.".red());
         return;
     }
 
     let selection = Select::new()
-        .with_prompt("🚀 Select an item to view:")
+        .with_prompt("Select an item to view:")
         .items(&keys)
         .default(0)
         .interact()
         .unwrap();
 
     let item_key = &keys[selection];
-    println!("🔎 Retrieving details for {}", item_key.bold().green());
+    println!("Retrieving details for {}", item_key.bold().green());
 
     if let Some(data) = db.get(item_key).unwrap() {
         let stored: SecureData = serde_json::from_slice(&data).unwrap();
         let decrypted = decrypt_data(&key, &stored.data);
         let vault_item: Result<VaultItem, _> = serde_json::from_str(&decrypted);
 
-        // Use a mutable variable to store sensitive data.
         let mut clipboard_contents = String::new();
 
         match vault_item {
@@ -108,9 +107,9 @@ pub fn get_item(db: &DB) {
         if !clipboard_contents.is_empty() {
             let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
             ctx.set_contents(clipboard_contents).unwrap();
-            println!("📋 Sensitive data has been copied to the clipboard.");
+            println!("Sensitive data has been copied to the clipboard.");
         }
     } else {
-        println!("{}", "❌ Item not found!".red());
+        println!("{}", "Item not found!".red());
     }
 }

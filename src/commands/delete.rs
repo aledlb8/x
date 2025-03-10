@@ -12,7 +12,7 @@ pub fn delete_item(db: &DB) {
         .collect();
 
     if keys.is_empty() {
-        println!("{}", "❌ No items found in the vault.".red());
+        println!("{}", "No items found in the vault.".red());
         return;
     }
 
@@ -25,8 +25,8 @@ pub fn delete_item(db: &DB) {
     let item_name = &keys[selection];
 
     if db.remove(item_name).is_ok() {
-        println!("🗑 Deleted: {}", item_name.red());
+        println!("Deleted: {}", item_name.red());
     } else {
-        println!("{}", "❌ Item not found!".red());
+        println!("{}", "Item not found!".red());
     }
 }

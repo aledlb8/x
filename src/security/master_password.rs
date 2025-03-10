@@ -23,11 +23,11 @@ pub fn initialize_master_password(db: &DB) -> Key<Aes256Gcm> {
         let hashed_password = blake3::hash(password.as_bytes()).as_bytes().to_vec();
 
         if stored_password.to_vec() != hashed_password {
-            println!("{}", "❌ Incorrect password!".red());
+            println!("{}", "Incorrect password!".red());
             std::process::exit(1);
         }
 
-        println!("{}", "🔓 Password verified!".green());
+        println!("{}", "Password verified!".green());
         return Key::<Aes256Gcm>::from_slice(&hashed_password[..]).clone();
     }
 
@@ -40,7 +40,7 @@ pub fn initialize_master_password(db: &DB) -> Key<Aes256Gcm> {
     db.insert(MASTER_KEY_STORAGE, &*hashed_password).unwrap();
     db.flush().expect("Failed to flush master password update");
 
-    println!("{}", "✅ Master Password Set!".green());
+    println!("{}", "Master Password Set!".green());
 
     Key::<Aes256Gcm>::from_slice(&hashed_password[..]).clone()
 }
