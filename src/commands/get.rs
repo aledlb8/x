@@ -41,7 +41,7 @@ pub fn get_item(db: &DB) {
         .keys()
         .filter_map(Result::ok)
         .map(|k| String::from_utf8(k.to_vec()).unwrap())
-        .filter(|k| k != "master_password" && k != "session")
+        .filter(|k| k != "master_password" && k != "session" && k != "session_timeout")
         .collect();
 
     if keys.is_empty() {
