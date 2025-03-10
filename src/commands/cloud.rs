@@ -8,7 +8,7 @@ use sled::Db;
 use std::collections::HashMap;
 use std::error::Error;
 
-static API_URL: &str = "http://15.204.219.61:4000/api/cloudsync";
+static API_URL: &str = "http://localhost:4000/api/cloudsync";
 
 #[derive(Serialize, Deserialize)]
 pub struct VaultEntry {
