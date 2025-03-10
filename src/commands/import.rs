@@ -12,7 +12,7 @@ struct ExportItem {
 }
 
 pub fn import_items(db: &DB) {
-    println!("{}", "📥 Import Vault Items".yellow().bold());
+    println!("{}", "Import Vault Items".yellow().bold());
 
     let file_path: String = Input::new()
         .with_prompt("Enter file path to import vault items from")

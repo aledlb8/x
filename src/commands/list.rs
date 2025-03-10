@@ -9,7 +9,7 @@ pub fn list_items(db: &DB) {
         .keys()
         .filter_map(Result::ok)
         .map(|k| String::from_utf8_lossy(&k).to_string())
-        .filter(|k| k != "master_password" && k != "session" && k != "session_timeout")
+        .filter(|k| k != "master_password" && k != "session" && k != "session_timeout" && k != "cloud_group")
         .collect();
 
     keys.sort();
