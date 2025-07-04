@@ -2,7 +2,8 @@ use crate::storage::database::DB;
 use chrono::Utc;
 
 const SESSION_STORAGE: &str = "session";
-const SESSION_TIMEOUT: i64 = 15; // minutes
+pub const SESSION_TIMEOUT_KEY: &str = "session_timeout";
+const DEFAULT_SESSION_TIMEOUT: i64 = 15; // minutes
 
 pub fn is_session_active(db: &DB) -> bool {
     if let Some(last_login) = db.get(SESSION_STORAGE).unwrap() {
@@ -12,7 +13,14 @@ pub fn is_session_active(db: &DB) -> bool {
             .unwrap();
         let now = Utc::now().timestamp();
 
-        if now - last_login_time < (SESSION_TIMEOUT * 60) {
+        let session_timeout = db
+                    .get(SESSION_TIMEOUT_KEY)
+                    .unwrap()
+                    .and_then(|v| String::from_utf8(v.to_vec()).ok())
+                    .and_then(|s| s.parse::<i64>().ok())
+                    .unwrap_or(DEFAULT_SESSION_TIMEOUT);
+
+        if now - last_login_time < (session_timeout * 60) {
             return true;
         }
     }

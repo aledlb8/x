@@ -1,5 +1,6 @@
 use crate::security::encryption::{decrypt_data, encrypt_data};
 use crate::security::master_password::MASTER_KEY_STORAGE;
+use crate::security::session::SESSION_TIMEOUT_KEY;
 use crate::storage::database::DB;
 use dialoguer::{Input, Password, Select};
 use owo_colors::OwoColorize;
@@ -62,7 +63,7 @@ fn change_master_password(db: &DB) {
     let old_key = Key::<Aes256Gcm>::from_slice(&current_hashed);
     let new_key = Key::<Aes256Gcm>::from_slice(&new_hashed);
 
-    let reserved_keys: HashSet<&str> = ["master_password", "session", "session_timeout"]
+    let reserved_keys: HashSet<&str> = ["master_password", "session", SESSION_TIMEOUT_KEY]
         .iter()
         .cloned()
         .collect();
@@ -96,7 +97,7 @@ fn change_session_timeout(db: &DB) {
         .interact_text()
         .unwrap();
 
-    db.insert("session_timeout", new_timeout.to_string().as_bytes())
+    db.insert(SESSION_TIMEOUT_KEY, new_timeout.to_string().as_bytes())
         .unwrap();
     db.flush().expect("Failed to flush database");
 
