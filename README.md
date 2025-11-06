@@ -12,21 +12,26 @@ What You Can Do
 
 Getting Started
 ---------------
-1. Start the host (once):
+1. Install
+   ```powershell
+   iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/aledlb8/x/main/install.ps1'))
+   ```
+
+2. Start the host (once):
    ```bash
    x host
    ```
    - Set a master password when prompted.
    - The host remembers the hash so you won't be asked again unless you delete the data file.
 
-2. Point a client at the host:
+3. Point a client at the host:
    ```bash
    x cloud http://your-host:4000
    ```
    - Enter the same master password the first time.
    - From now on the CLI keeps an encrypted hash so routine commands don't ask again.
 
-3. Use the vault commands:
+4. Use the vault commands:
    ```bash
    x add        # create a new entry
    x list       # show stored names
@@ -39,7 +44,8 @@ Getting Started
    ```
    Every command fetches the latest data from the host, applies your change, and saves it back immediately.
 
-# Images
+Images
+--------------
 <img width="922" height="562" alt="image" src="https://github.com/user-attachments/assets/b1320b4d-52f9-44f7-bba0-26ca224532c6" />
 <img width="922" height="562" alt="image" src="https://github.com/user-attachments/assets/768165a7-dbb5-431c-a600-6299fd88f20a" />
 <img width="922" height="562" alt="image" src="https://github.com/user-attachments/assets/97c5608c-df25-457c-9d15-39eda8d142a8" />
@@ -65,6 +71,7 @@ cargo fmt
 cargo clippy --all-targets -- -D warnings
 cargo check
 cargo test
+cargo build
 ```
 Folders you will see:
 - `cloud/` – host API and HTTP client.
@@ -72,12 +79,8 @@ Folders you will see:
 - `vault.rs` – data model and encryption helpers.
 - `config.rs` – minimal config loader/saver.
 
-Install from Source
+Build for release:
 -------------------
 ```bash
 cargo build --release
-```
-On Windows you can still use the original PowerShell helper:
-```powershell
-iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/aledlb8/x/main/install.ps1'))
 ```
