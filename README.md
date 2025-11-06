@@ -13,9 +13,16 @@ What You Can Do
 Getting Started
 ---------------
 1. Install
-   ```powershell
-   iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/aledlb8/x/main/install.ps1'))
-   ```
+   - Windows (PowerShell)
+     ```powershell
+     iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/aledlb8/x/main/install.ps1'))
+     ```
+     Set `X_VERSION`, `X_INSTALL_ROOT`, `X_INSTALL_BIN_DIR`, or `X_TARGET` before running if you need to pin a release or customize the install location/target triple.
+   - Linux or macOS (Bash)
+     ```bash
+     curl -fsSL https://raw.githubusercontent.com/aledlb8/x/main/install.sh | bash
+     ```
+     The script installs to `~/.local/bin` by default. Set `X_INSTALL_ROOT`, `X_INSTALL_BIN_DIR`, or `X_TARGET` to customize the destination or target triple.
 
 2. Start the host (once):
    ```bash
@@ -55,8 +62,8 @@ Helpful Extras
 --------------
 - `x cloud info` – quick health check that the host is reachable and how many entries are stored.
 - `x cloud remove` – forget the current host and stored hash (use this before switching servers).
-- Host data lives in `%APPDATA%/x_cli/cloud_host.db` (or the path you pass to `x host --data`).
-- Client settings live in `%APPDATA%/x_cli/config.json`. Delete this file to force the CLI to re-prompt for the master password.
+- Host data lives in `%APPDATA%/x_cli/cloud_host.db` on Windows, `~/.local/share/x_cli/cloud_host.db` on Linux, or `~/Library/Application Support/x_cli/cloud_host.db` on macOS (or the path you pass to `x host --data`).
+- Client settings live in `%APPDATA%/x_cli/config.json` on Windows, `~/.local/share/x_cli/config.json` on Linux, or `~/Library/Application Support/x_cli/config.json` on macOS. Delete this file to force the CLI to re-prompt for the master password.
 
 Security Notes
 --------------
@@ -84,3 +91,13 @@ Build for release:
 ```bash
 cargo build --release
 ```
+
+Releasing
+---------
+1. Update the version in `Cargo.toml` and create a matching tag (e.g., `v0.2.0`).
+2. Push the tag to GitHub (or trigger the `release` workflow manually). The workflow builds signed archives for:
+   - `x86_64-pc-windows-msvc`
+   - `x86_64-unknown-linux-gnu`
+   - `x86_64-apple-darwin`
+   - `aarch64-apple-darwin`
+3. The workflow uploads assets named `x-<tag>-<target>.(zip|tar.gz)` to the release. The installers and `x update` use these names, so keep the format intact.
