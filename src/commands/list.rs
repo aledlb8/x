@@ -1,15 +1,13 @@
-use crate::storage::database::DB;
+use crate::cloud::RemoteSession;
+use crate::vault::load_vault;
 use owo_colors::OwoColorize;
 
-pub fn list_items(db: &DB) {
+pub fn list_items(session: &RemoteSession) -> Result<(), String> {
     println!("{}", "Stored Items:".yellow().bold());
 
-    let mut keys: Vec<String> = db
-        .iter()
-        .keys()
-        .filter_map(Result::ok)
-        .map(|k| String::from_utf8_lossy(&k).to_string())
-        .filter(|k| k != "master_password" && k != "session" && k != "session_timeout" && k != "cloud_group")
+    let mut keys: Vec<String> = load_vault(session)?
+        .into_iter()
+        .map(|entry| entry.key)
         .collect();
 
     keys.sort();
@@ -21,4 +19,6 @@ pub fn list_items(db: &DB) {
             println!("  - {}", key.bold().green());
         }
     }
+
+    Ok(())
 }

@@ -1,43 +1,10 @@
-use crate::security::encryption::encrypt_data;
-use crate::security::master_password::initialize_master_password;
-use crate::storage::database::DB;
+use crate::cloud::{RemoteSession, VaultEntry};
 use crate::utils::prompt_input;
+use crate::vault::{load_vault, save_vault, SecureEntry, VaultItem};
 use dialoguer::Select;
 use owo_colors::OwoColorize;
-use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH};
 
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum VaultItem {
-    Password {
-        name: String,
-        website: String,
-        email: String,
-        username: String,
-        password: String,
-    },
-    CreditCard {
-        name: String,
-        number: String,
-        expiration_date: String,
-        cvv: String,
-    },
-    SecureNote {
-        title: String,
-        note: String,
-    },
-}
-
-#[derive(Serialize, Deserialize)]
-struct SecureData {
-    data: String,
-    created_at: u64,
-}
-
-pub fn add_item(db: &DB) {
-    let key = initialize_master_password(db);
-
+pub fn add_item(session: &RemoteSession) -> Result<(), String> {
     let item_type = Select::new()
         .with_prompt("What would you like to store?")
         .items(&["Password", "Credit Card", "Secure Note"])
@@ -55,40 +22,52 @@ pub fn add_item(db: &DB) {
             let email = prompt_input("Enter the email");
             let username = prompt_input("Enter the username");
             let password = prompt_input("Enter the password");
-            (name.clone(), VaultItem::Password { name, website, email, username, password })
+            (
+                name.clone(),
+                VaultItem::Password {
+                    name,
+                    website,
+                    email,
+                    username,
+                    password,
+                },
+            )
         }
         1 => {
             let name = prompt_input("Enter the card name (or cardholder's name)");
             let number = prompt_input("Enter the credit card number");
             let expiration_date = prompt_input("Enter the expiration date (MM/YY)");
             let cvv = prompt_input("Enter the CVV");
-            (name.clone(), VaultItem::CreditCard { name, number, expiration_date, cvv })
+            (
+                name.clone(),
+                VaultItem::CreditCard {
+                    name,
+                    number,
+                    expiration_date,
+                    cvv,
+                },
+            )
         }
         2 => {
             let title = prompt_input("Enter the title for the note");
             let note = prompt_input("Enter your secure note");
             (title.clone(), VaultItem::SecureNote { title, note })
         }
-        _ => return,
+        _ => return Ok(()),
     };
 
-    let vault_item_json = serde_json::to_string(&vault_item).unwrap();
+    let stored_item = SecureEntry::encrypt(session.encryption_key(), &vault_item)?;
+    let mut vault = load_vault(session)?;
 
-    let encrypted_data = encrypt_data(&key, &vault_item_json);
+    vault.retain(|entry| entry.key != unique_key);
+    let value_string = stored_item.serialize()?;
+    vault.push(VaultEntry {
+        key: unique_key.clone(),
+        value: value_string,
+    });
 
-    let stored_item = SecureData {
-        data: encrypted_data,
-        created_at: SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs(),
-    };
-
-    db.insert(
-        unique_key.clone(),
-        serde_json::to_string(&stored_item).unwrap().as_bytes(),
-    )
-    .unwrap();
+    save_vault(session, &vault)?;
 
     println!(" Successfully stored: {}", unique_key.green());
+    Ok(())
 }

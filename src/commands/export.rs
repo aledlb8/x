@@ -1,4 +1,5 @@
-use crate::storage::database::DB;
+use crate::cloud::RemoteSession;
+use crate::vault::load_vault;
 use dialoguer::Input;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
@@ -11,7 +12,7 @@ struct ExportItem {
     value: String,
 }
 
-pub fn export_items(db: &DB) {
+pub fn export_items(session: &RemoteSession) -> Result<(), String> {
     println!("{}", "Export Vault Items".yellow().bold());
 
     let file_path: String = Input::new()
@@ -20,34 +21,25 @@ pub fn export_items(db: &DB) {
         .interact_text()
         .unwrap();
 
-    let mut export_items = Vec::new();
-    for item in db.iter() {
-        let (key_bytes, value_bytes) = match item {
-            Ok(pair) => pair,
-            Err(e) => {
-                println!("{}", format!("Error reading a record: {}", e).red());
-                continue;
-            }
-        };
+    let export_items: Vec<ExportItem> = load_vault(session)?
+        .into_iter()
+        .map(|entry| ExportItem {
+            key: entry.key,
+            value: entry.value,
+        })
+        .collect();
 
-        let key_str = String::from_utf8_lossy(&key_bytes).to_string();
-        let value_str = String::from_utf8_lossy(&value_bytes).to_string();
-        export_items.push(ExportItem {
-            key: key_str,
-            value: value_str,
-        });
-    }
-
-    let json =
-        serde_json::to_string_pretty(&export_items).expect("Failed to serialize export items");
+    let json = serde_json::to_string_pretty(&export_items)
+        .map_err(|err| format!("Failed to serialize export items: {}", err))?;
 
     let mut file = File::create(&file_path)
-        .unwrap_or_else(|e| panic!("Failed to create file {}: {}", file_path, e));
+        .map_err(|err| format!("Failed to create file {}: {}", file_path, err))?;
     file.write_all(json.as_bytes())
-        .unwrap_or_else(|e| panic!("Failed to write to file {}: {}", file_path, e));
+        .map_err(|err| format!("Failed to write to file {}: {}", file_path, err))?;
 
     println!(
         "{}",
         format!("Exported {} items to {}", export_items.len(), file_path).green()
     );
+    Ok(())
 }

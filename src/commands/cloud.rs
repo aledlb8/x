@@ -1,279 +1,183 @@
-use dialoguer::{Input, Select};
-use hostname::get;
+use crate::cloud::{CloudApi, CloudClientError};
+use crate::config::AppConfig;
+use crate::security::master_password;
 use owo_colors::OwoColorize;
-use rand::Rng;
-use reqwest::blocking::Client;
-use serde::{Deserialize, Serialize};
-use sled::Db;
-use std::collections::HashMap;
-use std::error::Error;
+use reqwest::Url;
 
-static API_URL: &str = "http://localhost:4000/api/cloudsync";
+const DEFAULT_STATUS_MESSAGE: &str =
+    "No cloud endpoint configured. Use `x cloud <url>` to link to a host.";
 
-#[derive(Serialize, Deserialize)]
-pub struct VaultEntry {
-    pub key: String,
-    pub value: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct CloudResponse {
-    success: bool,
-    message: String,
-    vault: Option<Vec<VaultEntry>>,
-    group_id: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct CloudInfoResponse {
-    success: bool,
-    #[serde(default)]
-    message: Option<String>,
-    machines: Vec<MachineInfo>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct MachineInfo {
-    #[serde(flatten)]
-    info: HashMap<String, Vec<u8>>,
-}
-
-pub fn export_vault(db: &Db) -> Vec<VaultEntry> {
-    let reserved = ["session", "master_password"];
-    let mut vault = Vec::new();
-    for item in db.iter() {
-        if let Ok((key_bytes, value_bytes)) = item {
-            let key = String::from_utf8(key_bytes.to_vec()).unwrap_or_default();
-            if reserved.contains(&key.as_str()) {
-                continue;
-            }
-            let value = String::from_utf8(value_bytes.to_vec()).unwrap_or_default();
-            vault.push(VaultEntry { key, value });
-        }
-    }
-    vault
-}
-
-pub fn cloud_sync(db: &Db) -> Result<(), reqwest::Error> {
-    if let Ok(Some(group_id_bytes)) = db.get("cloud_group") {
-        let group_id = String::from_utf8_lossy(&group_id_bytes).to_string();
-        let choices = vec!["Upload vault to cloud", "Download vault from cloud"];
-        let selection = Select::new()
-            .with_prompt(format!(
-                "Already linked to group {}. Select an action:",
-                group_id
-            ))
-            .items(&choices)
-            .default(0)
-            .interact()
-            .unwrap();
-
-        let machine = get().unwrap_or_else(|_| "Unknown".into());
-        let client = Client::new();
-
-        if selection == 0 {
-            println!("{}", "Uploading vault to cloud...".yellow());
-            let vault = export_vault(db);
-            let payload = serde_json::json!({
-                "group_id": group_id,
-                "machine": machine,
-                "vault": vault,
-            });
-            let url = format!("{}/update", API_URL);
-            let res = client.post(&url).json(&payload).send()?;
-            if res.status().is_success() {
-                let resp: CloudResponse = res.json()?;
-                if resp.success {
-                    println!("{}", "Vault updated with cloud sync.".green());
-                } else {
-                    println!("{}", format!("Update failed: {}", resp.message).red());
-                }
-            } else {
-                println!("{}", "Error connecting to the cloud sync server.".red());
-            }
-        } else {
-            println!("{}", "Downloading vault from cloud...".yellow());
-            let payload = serde_json::json!({
-                "code": group_id,
-                "machine": machine,
-            });
-            let url = format!("{}/link", API_URL);
-            let res = client.post(&url).json(&payload).send()?;
-            if res.status().is_success() {
-                let resp: CloudResponse = res.json()?;
-                if resp.success {
-                    println!("{}", "Cloud sync link established successfully.".green());
-                    if let Some(vault) = resp.vault {
-                        for entry in vault {
-                            if entry.key == "master_password" {
-                                continue;
-                            }
-                            db.insert(entry.key, entry.value.into_bytes()).unwrap();
-                        }
-                        db.flush().unwrap();
-                        println!("{}", "Local vault updated with cloud data.".green());
-                    } else {
-                        println!("{}", "No vault data received from the server.".yellow());
-                    }
-                } else {
-                    println!("{}", format!("Link failed: {}", resp.message).red());
-                }
-            } else {
-                println!("{}", "Error connecting to the cloud sync server.".red());
-            }
-        }
-    } else {
-        // Not linked yet: perform registration.
-        println!("{}", "Starting cloud sync registration...".yellow());
-        let code: u32 = rand::thread_rng().gen_range(100000..1000000);
-        let code_str = code.to_string();
-
-        let machine = get().unwrap_or_else(|_| "Unknown".into());
-        let vault = export_vault(db);
-        let payload = serde_json::json!({
-            "code": code_str,
-            "machine": machine,
-            "vault": vault,
-        });
-
-        let client = Client::new();
-        let url = format!("{}/register", API_URL);
-        let res = client.post(&url).json(&payload).send()?;
-
-        if res.status().is_success() {
-            let resp: CloudResponse = res.json()?;
-            if resp.success {
+pub fn handle_cloud_command(config: &mut AppConfig, target: Option<String>) -> Result<(), String> {
+    if let Some(argument) = target {
+        match argument.trim() {
+            "remove" => return remove_cloud_link(config),
+            "info" => return cloud_info(config),
+            "register" | "join" | "push" | "pull" | "sync" => {
                 println!(
                     "{}",
-                    format!(
-                        "Registration successful. Cloud sync code: {}. Use this code on your other machine to link.",
-                        code_str
-                    )
-                    .green()
-                    .bold()
+                    "Registration codes and manual sync are no longer needed—every machine that knows the host URL and master password shares the same vault."
+                        .yellow()
                 );
-                let group_id = resp.group_id.unwrap_or(code_str);
-                db.insert("cloud_group", group_id.as_bytes()).unwrap();
-                db.flush().unwrap();
-            } else {
-                println!("{}", format!("Registration failed: {}", resp.message).red());
+                return Ok(());
             }
-        } else {
-            println!("{}", "Error connecting to the cloud sync server.".red());
+            other if !other.is_empty() => {
+                return set_cloud_endpoint(config, other.to_string());
+            }
+            _ => {}
         }
     }
+
+    show_status(config);
     Ok(())
 }
 
-pub fn cloud_code(db: &Db) -> Result<(), reqwest::Error> {
+fn set_cloud_endpoint(config: &mut AppConfig, input: String) -> Result<(), String> {
+    let normalized = normalize_base_url(&input)?;
+    let api = CloudApi::new(normalized.clone()).map_err(to_message)?;
+
+    let password = master_password::prompt_master_password("Enter the host master password");
+    let auth_hash = master_password::hash_password(&password);
+    api.verify_master(&auth_hash).map_err(to_message)?;
+
+    config.base_url = Some(normalized.clone());
+    config.master_hash = Some(auth_hash);
+    config
+        .save()
+        .map_err(|err| format!("Failed to save configuration: {}", err))?;
+
     println!(
         "{}",
-        "Enter the cloud sync code to link this machine:".yellow()
+        format!("Cloud API endpoint set to {}.", normalized).green()
     );
-
-    let code_input: String = Input::new()
-        .with_prompt("Cloud Sync Code")
-        .interact_text()
-        .unwrap();
-
-    let machine = get().unwrap_or_else(|_| "Unknown".into());
-    let payload = serde_json::json!({
-        "code": code_input,
-        "machine": machine,
-    });
-
-    let client = Client::new();
-    let url = format!("{}/link", API_URL);
-    let res = client.post(&url).json(&payload).send()?;
-    if res.status().is_success() {
-        let resp: CloudResponse = res.json()?;
-        if resp.success {
-            println!("{}", "Cloud sync link established successfully.".green());
-            if let Some(vault) = resp.vault {
-                for entry in vault {
-                    if entry.key == "master_password" {
-                        continue;
-                    }
-                    db.insert(entry.key, entry.value.into_bytes()).unwrap();
-                }
-                db.flush().unwrap();
-                println!("{}", "Local vault updated with cloud data.".green());
-            } else {
-                println!("{}", "No vault data received from the server.".yellow());
-            }
-            if let Some(group_id) = resp.group_id {
-                db.insert("cloud_group", group_id.as_bytes()).unwrap();
-                db.flush().unwrap();
-            }
-        } else {
-            println!("{}", format!("Link failed: {}", resp.message).red());
-        }
-    } else {
-        println!("{}", "Error connecting to the cloud sync server.".red());
-    }
-
+    println!(
+        "{}",
+        "Every CLI command will now operate directly against this host.".yellow()
+    );
     Ok(())
 }
 
-pub fn cloud_info(db: &Db) -> Result<(), Box<dyn Error>> {
-    println!("{}", "Fetching cloud sync info...".yellow());
+fn cloud_info(config: &mut AppConfig) -> Result<(), String> {
+    let base_url = config
+        .base_url
+        .clone()
+        .ok_or_else(|| DEFAULT_STATUS_MESSAGE.to_string())?;
 
-    let group_code_opt = db.get("cloud_group")?;
-    let group_code = if let Some(group_bytes) = group_code_opt {
-        String::from_utf8_lossy(&group_bytes).to_string()
-    } else {
-        println!(
-            "{}",
-            "This machine is not linked to any cloud group. Please register or link first.".red()
-        );
-        return Ok(());
-    };
+    let auth_hash = ensure_master_hash(config, &base_url)?;
+    let api = CloudApi::new(base_url).map_err(to_message)?;
 
-    let client = Client::new();
-    let url = format!("{}/info?code={}", API_URL, group_code);
-    let res = client.get(&url).send()?;
-
-    if res.status().is_success() {
-        let raw_body = res.text()?;
-
-        let resp: CloudInfoResponse = serde_json::from_str(&raw_body).map_err(|e| {
-            eprintln!("Error decoding response body: {}", e);
-            e
-        })?;
-
-        if resp.success {
-            println!("{}", "Connected machines:".green().bold());
-            for machine in resp.machines {
-                for (platform, data) in machine.info {
-                    let decoded =
-                        String::from_utf8(data).unwrap_or_else(|_| "Invalid UTF-8".to_string());
-                    println!("  - {}: {}", platform, decoded);
-                }
-            }
-        } else {
-            println!(
-                "{}",
-                format!(
-                    "Cloud info error: {}",
-                    resp.message.unwrap_or("Unknown error".into())
-                )
-                .red()
-            );
-        }
-    } else {
-        let status = res.status();
-        let body = res
-            .text()
-            .unwrap_or_else(|_| "Unable to read response body".to_string());
+    let info = api.info(&auth_hash).map_err(to_message)?;
+    if info.success {
         println!(
             "{}",
             format!(
-                "Error fetching cloud sync info. HTTP Status: {}. Details: {}",
-                status, body
+                "Cloud vault reachable. Stored entries: {}",
+                info.entry_count
             )
-            .red()
+            .green()
+            .bold()
         );
+    } else {
+        let message = info.message.unwrap_or_else(|| "Unknown error".into());
+        println!("{}", format!("Cloud info error: {}", message).red());
+    }
+    Ok(())
+}
+
+fn remove_cloud_link(config: &mut AppConfig) -> Result<(), String> {
+    let previous_endpoint = config.base_url.take();
+    config.master_hash = None;
+    config
+        .save()
+        .map_err(|err| format!("Failed to save configuration: {}", err))?;
+
+    match previous_endpoint {
+        Some(endpoint) => {
+            println!(
+                "{}",
+                format!("Removed cloud endpoint {}.", endpoint).green()
+            );
+        }
+        None => println!("{}", "No linked cloud endpoint to remove.".yellow()),
     }
 
     Ok(())
 }
+
+fn show_status(config: &AppConfig) {
+    println!("{}", "Cloud status".green().bold());
+    match &config.base_url {
+        Some(url) => println!("Endpoint: {}", url),
+        None => {
+            println!("Endpoint: (none)");
+            println!("{}", DEFAULT_STATUS_MESSAGE.yellow());
+        }
+    }
+
+    let stored_msg = if config.master_hash.is_some() {
+        "yes".green().to_string()
+    } else {
+        "no".red().to_string()
+    };
+    println!("Master password stored: {}", stored_msg);
+
+    println!();
+    println!("Commands:");
+    println!("  x cloud <url>    Set or change the cloud endpoint");
+    println!("  x cloud info     Show vault statistics");
+    println!("  x cloud remove   Unlink from the cloud endpoint");
+}
+
+fn ensure_master_hash(config: &mut AppConfig, base_url: &str) -> Result<String, String> {
+    if let Some(hash) = config.master_hash.clone() {
+        return Ok(hash);
+    }
+
+    let password = master_password::prompt_master_password("Enter the host master password");
+    let auth_hash = master_password::hash_password(&password);
+    let api = CloudApi::new(base_url.to_string()).map_err(to_message)?;
+    api.verify_master(&auth_hash).map_err(to_message)?;
+
+    config.master_hash = Some(auth_hash.clone());
+    config
+        .save()
+        .map_err(|err| format!("Failed to save configuration: {}", err))?;
+    Ok(auth_hash)
+}
+
+fn normalize_base_url(input: &str) -> Result<String, String> {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return Err("Cloud URL cannot be empty".to_string());
+    }
+
+    let parsed = Url::parse(trimmed)
+        .or_else(|_| Url::parse(&format!("http://{}", trimmed)))
+        .map_err(|err| format!("Invalid URL: {}", err))?;
+
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return Err("Cloud URL must start with http:// or https://".to_string());
+    }
+
+    let mut normalized = parsed;
+    if normalized.path() == "/" || normalized.path().is_empty() {
+        normalized.set_path("api/cloudsync");
+    }
+
+    let mut final_url = normalized.to_string();
+    while final_url.ends_with('/') {
+        final_url.pop();
+    }
+
+    Ok(final_url)
+}
+
+fn to_message(error: CloudClientError) -> String {
+    match error {
+        CloudClientError::Http(err) => format!("Network error: {}", err),
+        CloudClientError::Failure(msg) => msg,
+        CloudClientError::AuthenticationFailed => AUTH_FAILURE.to_string(),
+    }
+}
+
+const AUTH_FAILURE: &str =
+    "Authentication failed. Verify the master password and host configuration.";

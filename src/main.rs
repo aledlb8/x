@@ -1,8 +1,13 @@
+mod cloud;
 mod commands;
+mod config;
 mod security;
-mod storage;
 mod utils;
+mod vault;
 
+use crate::cloud::{CloudClientError, RemoteSession};
+use crate::config::AppConfig;
+use crate::security::master_password;
 use clap::{Parser, Subcommand};
 use owo_colors::OwoColorize;
 
@@ -21,58 +26,92 @@ enum Commands {
     Delete,
     Edit,
     Passgen,
-    Config,
     Import,
     Export,
     Update,
-    CloudSync,
-    CloudCode,
-    CloudInfo,
+    Cloud {
+        #[arg(value_name = "TARGET")]
+        target: Option<String>,
+    },
+    Host {
+        #[arg(long, default_value = "0.0.0.0")]
+        bind: String,
+        #[arg(long, default_value_t = 4000)]
+        port: u16,
+        #[arg(long)]
+        data: Option<std::path::PathBuf>,
+    },
 }
 
 fn main() {
     let cli = Cli::parse();
-    let db = storage::database::open_db();
+    let mut app_config = AppConfig::load();
 
-    if let Commands::Import = cli.command {
-        commands::import::import_items(&db);
-    } else {
-        if !security::session::is_session_active(&db) {
-            println!(
-                "{}",
-                "No active session found. Please enter your master password.".yellow()
-            );
-            security::master_password::initialize_master_password(&db);
-            security::session::update_session(&db);
-        }
+    match cli.command {
+        Commands::Host { bind, port, data } => {
+            let mut config = cloud::ServerConfig::default();
+            config.bind_address = bind;
+            config.port = port;
+            config.data_path = data;
 
-        match cli.command {
-            Commands::Add => commands::add::add_item(&db),
-            Commands::List => commands::list::list_items(&db),
-            Commands::Get => commands::get::get_item(&db),
-            Commands::Delete => commands::delete::delete_item(&db),
-            Commands::Edit => commands::edit::edit_item(&db),
-            Commands::Passgen => commands::password_generator::generate_password(),
-            Commands::Config => commands::config::config(&db),
-            Commands::Export => commands::export::export_items(&db),
-            Commands::Update => commands::update::update_program(),
-            Commands::Import => unreachable!(),
-
-            Commands::CloudSync => {
-                if let Err(e) = commands::cloud::cloud_sync(&db) {
-                    eprintln!("Error during cloud sync: {}", e);
-                }
-            }
-            Commands::CloudCode => {
-                if let Err(e) = commands::cloud::cloud_code(&db) {
-                    eprintln!("Error during cloud linking: {}", e);
-                }
-            }
-            Commands::CloudInfo => {
-                if let Err(e) = commands::cloud::cloud_info(&db) {
-                    eprintln!("Error fetching cloud info: {}", e);
-                }
+            if let Err(e) = commands::host::host_server(config) {
+                eprintln!("Failed to host cloud API server: {}", e);
             }
         }
+        Commands::Cloud { target } => {
+            if let Err(err) = commands::cloud::handle_cloud_command(&mut app_config, target) {
+                eprintln!("{}", err.red());
+            }
+        }
+        Commands::Passgen => commands::password_generator::generate_password(),
+        Commands::Update => commands::update::update_program(),
+        command => match build_session(&mut app_config) {
+            Ok(session) => match command {
+                Commands::Add => report(commands::add::add_item(&session)),
+                Commands::List => report(commands::list::list_items(&session)),
+                Commands::Get => report(commands::get::get_item(&session)),
+                Commands::Delete => report(commands::delete::delete_item(&session)),
+                Commands::Edit => report(commands::edit::edit_item(&session)),
+                Commands::Import => report(commands::import::import_items(&session)),
+                Commands::Export => report(commands::export::export_items(&session)),
+                _ => unreachable!(),
+            },
+            Err(err) => eprintln!("{}", err.red()),
+        },
+    }
+}
+
+fn build_session(app_config: &mut AppConfig) -> Result<RemoteSession, String> {
+    let base_url = app_config.base_url.clone().ok_or_else(|| {
+        "No cloud endpoint configured. Run `x cloud <url>` to connect to a host.".to_string()
+    })?;
+
+    if let Some(hash) = app_config.master_hash.clone() {
+        match RemoteSession::from_hash(base_url.clone(), hash.clone()) {
+            Ok(session) => return Ok(session),
+            Err(CloudClientError::AuthenticationFailed) => {
+                eprintln!(
+                    "{}",
+                    "Stored master password hash no longer matches the host. Please re-enter the password."
+                        .red()
+                );
+                app_config.master_hash = None;
+            }
+            Err(err) => return Err(err.to_string()),
+        }
+    }
+
+    let password = master_password::prompt_master_password("Enter the host master password");
+    let session = RemoteSession::new(base_url, password).map_err(|err| err.to_string())?;
+    app_config.master_hash = Some(session.auth_hash().to_string());
+    if let Err(err) = app_config.save() {
+        eprintln!("Warning: failed to persist master password hash: {}", err);
+    }
+    Ok(session)
+}
+
+fn report(result: Result<(), String>) {
+    if let Err(err) = result {
+        eprintln!("{}", err.red());
     }
 }

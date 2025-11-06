@@ -1,11 +1,11 @@
 pub mod add;
-pub mod get;
-pub mod list;
+pub mod cloud;
 pub mod delete;
 pub mod edit;
-pub mod password_generator;
-pub mod config;
 pub mod export;
+pub mod get;
+pub mod host;
 pub mod import;
+pub mod list;
+pub mod password_generator;
 pub mod update;
-pub mod cloud;

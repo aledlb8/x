@@ -1,17 +1,18 @@
-use crate::storage::database::DB;
-use dialoguer::{Input, Password};
+use crate::cloud::{RemoteSession, VaultEntry};
+use crate::vault::{load_vault, save_vault};
+use dialoguer::Input;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Read;
 
 #[derive(Serialize, Deserialize)]
-struct ExportItem {
+struct ImportItem {
     key: String,
     value: String,
 }
 
-pub fn import_items(db: &DB) {
+pub fn import_items(session: &RemoteSession) -> Result<(), String> {
     println!("{}", "Import Vault Items".yellow().bold());
 
     let file_path: String = Input::new()
@@ -21,51 +22,36 @@ pub fn import_items(db: &DB) {
         .unwrap();
 
     let mut file = File::open(&file_path)
-        .unwrap_or_else(|e| panic!("Failed to open file {}: {}", file_path, e));
+        .map_err(|err| format!("Failed to open file {}: {}", file_path, err))?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)
-        .unwrap_or_else(|e| panic!("Failed to read file {}: {}", file_path, e));
+        .map_err(|err| format!("Failed to read file {}: {}", file_path, err))?;
 
-    let export_items: Vec<ExportItem> =
-        serde_json::from_str(&contents).unwrap_or_else(|e| panic!("Failed to parse JSON: {}", e));
+    let items: Vec<ImportItem> =
+        serde_json::from_str(&contents).map_err(|err| format!("Failed to parse JSON: {}", err))?;
 
-    let master_item_opt = export_items
-        .iter()
-        .find(|item| item.key == "master_password");
-    if let Some(master_item) = master_item_opt {
-        let input_password = Password::new()
-            .with_prompt("Enter master password to confirm import")
-            .interact()
-            .unwrap();
-
-        let hashed_input = blake3::hash(input_password.as_bytes());
-        let hashed_input_hex = hex::encode(hashed_input.as_bytes());
-
-        if master_item.value != hashed_input_hex {
-            println!("{}", "Incorrect master password. Import aborted.".red());
-            return;
-        }
-    } else {
-        println!(
-            "{}",
-            "No master password found in export file. Import aborted.".red()
-        );
-        return;
+    if items.is_empty() {
+        println!("{}", "No items found in the import file.".yellow());
+        return Ok(());
     }
 
-    for item in &export_items {
-        db.insert(item.key.clone(), item.value.clone().into_bytes())
-            .unwrap();
+    let mut vault = load_vault(session)?;
+
+    let mut imported = 0usize;
+    for item in items {
+        vault.retain(|entry| entry.key != item.key);
+        vault.push(VaultEntry {
+            key: item.key,
+            value: item.value,
+        });
+        imported += 1;
     }
-    db.flush().unwrap();
+
+    save_vault(session, &vault)?;
 
     println!(
         "{}",
-        format!(
-            "Imported {} items from {}",
-            export_items.len(),
-            file_path
-        )
-        .green()
+        format!("Imported {} items from {}", imported, file_path).green()
     );
+    Ok(())
 }

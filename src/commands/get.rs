@@ -1,52 +1,17 @@
-use crate::security::encryption::decrypt_data;
-use crate::security::master_password::initialize_master_password;
-use crate::storage::database::DB;
+use crate::cloud::RemoteSession;
+use crate::vault::{load_vault, SecureEntry, VaultItem};
 use clipboard::{ClipboardContext, ClipboardProvider};
 use dialoguer::Select;
 use owo_colors::OwoColorize;
-use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-enum VaultItem {
-    Password {
-        name: String,
-        website: String,
-        email: String,
-        username: String,
-        password: String,
-    },
-    CreditCard {
-        name: String,
-        number: String,
-        expiration_date: String,
-        cvv: String,
-    },
-    SecureNote {
-        title: String,
-        note: String,
-    },
-}
+pub fn get_item(session: &RemoteSession) -> Result<(), String> {
+    let entries = load_vault(session)?;
 
-#[derive(Deserialize)]
-struct SecureData {
-    data: String,
-}
-
-pub fn get_item(db: &DB) {
-    let key = initialize_master_password(db);
-
-    let keys: Vec<String> = db
-        .iter()
-        .keys()
-        .filter_map(Result::ok)
-        .map(|k| String::from_utf8(k.to_vec()).unwrap())
-        .filter(|k| k != "master_password" && k != "session" && k != "session_timeout" && k != "cloud_group")
-        .collect();
+    let keys: Vec<String> = entries.iter().map(|entry| entry.key.clone()).collect();
 
     if keys.is_empty() {
         println!("{}", "No items found in the vault.".red());
-        return;
+        return Ok(());
     }
 
     let selection = Select::new()
@@ -59,57 +24,56 @@ pub fn get_item(db: &DB) {
     let item_key = &keys[selection];
     println!("Retrieving details for {}", item_key.bold().green());
 
-    if let Some(data) = db.get(item_key).unwrap() {
-        let stored: SecureData = serde_json::from_slice(&data).unwrap();
-        let decrypted = decrypt_data(&key, &stored.data);
-        let vault_item: Result<VaultItem, _> = serde_json::from_str(&decrypted);
+    let entry = entries
+        .into_iter()
+        .find(|entry| &entry.key == item_key)
+        .ok_or_else(|| "Selected item not found.".to_string())?;
 
-        let mut clipboard_contents = String::new();
+    let vault_item = SecureEntry::decrypt(session.encryption_key(), &entry.value)?;
+    let mut clipboard_contents = String::new();
 
-        match vault_item {
-            Ok(VaultItem::Password {
-                name,
-                website,
-                email,
-                username,
-                password,
-            }) => {
-                println!("{} {}", "Type:".cyan(), "Password".bold().green());
-                println!("{} {}", "Name:".cyan(), name.bold());
-                println!("{} {}", "Website:".cyan(), website.bold());
-                println!("{} {}", "Email:".cyan(), email.bold());
-                println!("{} {}", "Username:".cyan(), username.bold());
-                println!("{} {}", "Password:".cyan(), "[hidden]".red());
-                clipboard_contents = password;
-            }
-            Ok(VaultItem::CreditCard {
-                name,
-                number,
-                expiration_date,
-                cvv,
-            }) => {
-                println!("{} {}", "Type:".cyan(), "Credit Card".bold().blue());
-                println!("{} {}", "Name:".cyan(), name.bold());
-                println!("{} {}", "Number:".cyan(), number.bold());
-                println!("{} {}", "Expiration Date:".cyan(), expiration_date.bold());
-                println!("{} {}", "CVV:".cyan(), "[hidden]".red());
-                clipboard_contents = cvv;
-            }
-            Ok(VaultItem::SecureNote { title, note }) => {
-                println!("{} {}", "Type:".cyan(), "Secure Note".bold().magenta());
-                println!("{} {}", "Title:".cyan(), title.bold());
-                println!("{} {}", "Note:".cyan(), note.bold());
-            }
-            Err(e) => {
-                println!("{} {}", "Error parsing item data:".red(), e);
-            }
+    match vault_item {
+        VaultItem::Password {
+            name,
+            website,
+            email,
+            username,
+            password,
+        } => {
+            println!("{} {}", "Type:".cyan(), "Password".bold().green());
+            println!("{} {}", "Name:".cyan(), name.bold());
+            println!("{} {}", "Website:".cyan(), website.bold());
+            println!("{} {}", "Email:".cyan(), email.bold());
+            println!("{} {}", "Username:".cyan(), username.bold());
+            println!("{} {}", "Password:".cyan(), "[hidden]".red());
+            clipboard_contents = password;
         }
-        if !clipboard_contents.is_empty() {
-            let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-            ctx.set_contents(clipboard_contents).unwrap();
-            println!("Sensitive data has been copied to the clipboard.");
+        VaultItem::CreditCard {
+            name,
+            number,
+            expiration_date,
+            cvv,
+        } => {
+            println!("{} {}", "Type:".cyan(), "Credit Card".bold().blue());
+            println!("{} {}", "Name:".cyan(), name.bold());
+            println!("{} {}", "Number:".cyan(), number.bold());
+            println!("{} {}", "Expiration Date:".cyan(), expiration_date.bold());
+            println!("{} {}", "CVV:".cyan(), "[hidden]".red());
+            clipboard_contents = cvv;
         }
-    } else {
-        println!("{}", "Item not found!".red());
+        VaultItem::SecureNote { title, note } => {
+            println!("{} {}", "Type:".cyan(), "Secure Note".bold().magenta());
+            println!("{} {}", "Title:".cyan(), title.bold());
+            println!("{} {}", "Note:".cyan(), note.bold());
+        }
     }
+
+    if !clipboard_contents.is_empty() {
+        let mut ctx: ClipboardContext = ClipboardProvider::new().map_err(|err| err.to_string())?;
+        ctx.set_contents(clipboard_contents)
+            .map_err(|err| err.to_string())?;
+        println!("Sensitive data has been copied to the clipboard.");
+    }
+
+    Ok(())
 }
