@@ -95,7 +95,19 @@ function Install-Binary {
 try {
     Write-Host "Fetching release metadata..." -ForegroundColor Cyan
     $release = Resolve-ReleaseMetadata -Version $VersionSpec
-    $assetPattern = "$BinaryBaseName-$TargetTriple"
+    $releaseTag = $release.tag_name
+    if (-not $releaseTag -or $releaseTag -eq "") {
+        if ($VersionSpec -ne "latest") {
+            $releaseTag = $VersionSpec
+        }
+    }
+
+    if ($releaseTag) {
+        $assetPattern = "$BinaryBaseName-$releaseTag-$TargetTriple"
+    }
+    else {
+        $assetPattern = "$BinaryBaseName-$TargetTriple"
+    }
     $assetUrl = Find-AssetUrl -Release $release -Pattern $assetPattern
 
     if (-not $assetUrl) {

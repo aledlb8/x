@@ -90,6 +90,12 @@ fetch_release_json() {
     echo "$release_json"
 }
 
+extract_release_tag() {
+    printf '%s\n' "$1" |
+        grep -m1 '"tag_name"' |
+        sed -E 's/.*"tag_name": *"([^"]+)".*/\1/'
+}
+
 extract_asset_url() {
     local release_json pattern
     release_json="$1"
@@ -190,7 +196,7 @@ EOF
 }
 
 main() {
-    local target release_json asset_pattern asset_url tmp_dir archive_path binary_path
+    local target release_json release_tag asset_pattern asset_url tmp_dir archive_path binary_path
 
     setup_downloader
     if [[ -z "$TARGET_TRIPLE" ]]; then
@@ -198,7 +204,20 @@ main() {
     fi
 
     release_json="$(fetch_release_json)"
-    asset_pattern="${BINARY_NAME}-${TARGET_TRIPLE}"
+    release_tag="$(extract_release_tag "$release_json")"
+    if [[ -z "$release_tag" || "$release_tag" == "null" ]]; then
+        if [[ "$VERSION" != "latest" ]]; then
+            release_tag="$VERSION"
+        else
+            release_tag=""
+        fi
+    fi
+
+    if [[ -n "$release_tag" ]]; then
+        asset_pattern="${BINARY_NAME}-${release_tag}-${TARGET_TRIPLE}"
+    else
+        asset_pattern="${BINARY_NAME}-${TARGET_TRIPLE}"
+    fi
     asset_url="$(extract_asset_url "$release_json" "$asset_pattern")"
 
     if [[ -z "$asset_url" ]]; then
