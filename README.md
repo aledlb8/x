@@ -39,6 +39,12 @@ Getting Started
    ```
    Every command fetches the latest data from the host, applies your change, and saves it back immediately.
 
+# Images
+<img width="922" height="562" alt="image" src="https://github.com/user-attachments/assets/b1320b4d-52f9-44f7-bba0-26ca224532c6" />
+<img width="922" height="562" alt="image" src="https://github.com/user-attachments/assets/768165a7-dbb5-431c-a600-6299fd88f20a" />
+<img width="922" height="562" alt="image" src="https://github.com/user-attachments/assets/97c5608c-df25-457c-9d15-39eda8d142a8" />
+<img width="922" height="562" alt="image" src="https://github.com/user-attachments/assets/08bc0604-9465-41b8-ac75-29860f92d4de" />
+
 Helpful Extras
 --------------
 - `x cloud info` – quick health check that the host is reachable and how many entries are stored.
